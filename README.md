@@ -1,8 +1,8 @@
 # Brain MRI Tumor Detection with Semi-Supervised Learning
 
-This project explores brain MRI image classification with a small labeled set and a larger unlabeled set. The main goal is to compare a purely supervised baseline against a semi-supervised approach that uses pseudo-labels generated from clustering.
+This project explores brain MRI image classification with a small labeled set and a larger unlabeled set. The main goal is to compare a purely supervised baseline against two semi-supervised approaches that use pseudo-labels generated from clustering: KMeans and DBSCAN.
 
-The project was designed as a methodological exercise: semi-supervised learning should not simply add every pseudo-label blindly. The final approach keeps only high-confidence pseudo-labels from highly pure KMeans clusters.
+The project was designed as a methodological exercise: semi-supervised learning should not simply add every pseudo-label blindly. The final approach keeps only high-confidence pseudo-labels from highly pure clusters, then compares whether the clustering method actually improves downstream classification.
 
 ## Dataset
 
@@ -59,14 +59,14 @@ Run the notebooks in this order:
 3. `3_unsupervised_analysis.ipynb`
    - Performs PCA and t-SNE visual analysis.
    - Tests clustering methods such as KMeans and DBSCAN.
-   - Selects KMeans as the main clustering strategy.
+   - Compares clustering methods such as KMeans and DBSCAN.
    - Writes:
-     - `clustering_results.csv`
+     - `analysis_clustering_results.csv`
 
 4. `4_modeling.ipynb`
    - Trains a supervised baseline using only strongly labeled images.
-   - Builds a selective semi-supervised training set using high-purity KMeans clusters.
-   - Compares supervised and semi-supervised performance on a final split and with cross-validation.
+   - Builds selective semi-supervised training sets using high-purity KMeans and DBSCAN clusters.
+   - Compares supervised, KMeans semi-supervised, and DBSCAN semi-supervised performance on a final split and with cross-validation.
    - Writes the final modeling artifacts with the `_selective` suffix.
 
 ## Processed Artifacts
@@ -84,7 +84,7 @@ Important files:
 - `resnet18_features.csv`
   - Tabular version of the embeddings, with metadata columns.
 
-- `clustering_results.csv`
+- `analysis_clustering_results.csv`
   - Feature table enriched with PCA, t-SNE, and clustering outputs.
 
 - `kmeans_cluster_purity_modeling.csv`
@@ -96,8 +96,14 @@ Important files:
 - `pseudo_labels_kmeans_selective.csv`
   - Unlabeled images that received a high-confidence pseudo-label.
 
-- `semi_supervised_training_set_selective.csv`
-  - Final semi-supervised training table: strong labels plus selected pseudo-labels.
+- `pseudo_labels_dbscan_selective.csv`
+  - Unlabeled images that received a high-confidence pseudo-label with DBSCAN.
+
+- `semi_supervised_training_set_kmeans_selective.csv`
+  - Final KMeans semi-supervised training table: strong labels plus selected pseudo-labels.
+
+- `semi_supervised_training_set_dbscan_selective.csv`
+  - Final DBSCAN semi-supervised training table: strong labels plus selected pseudo-labels.
 
 - `modeling_metrics_selective.csv`
   - Final split comparison between supervised and selective semi-supervised models.
@@ -139,14 +145,14 @@ The corrected method is selective.
 
 For each training split:
 
-1. KMeans is fitted without using the held-out test fold.
+1. The clustering model is fitted without using the held-out test fold.
 2. Clusters are labeled using only strongly labeled training images.
 3. A cluster is kept only if it is highly pure.
 4. Only unlabeled images in selected clusters receive pseudo-labels.
 5. Pseudo-labeled samples receive a small sample weight.
 6. Evaluation is performed on strongly labeled held-out data only.
 
-The retained configuration is:
+The retained KMeans configuration is:
 
 - `k = 10`
 - minimum cluster purity: `0.95`
@@ -154,20 +160,43 @@ The retained configuration is:
 - pseudo-label sample weight: `0.01`
 - selected clusters can represent either `cancer` or `normal`
 
-This makes the pseudo-labeling conservative: quality is preferred over quantity.
+DBSCAN is evaluated with the same selective pseudo-labeling principle. This makes the comparison conservative: quality is preferred over quantity, and pseudo-labels are evaluated only through their effect on strongly labeled validation data.
 
 ## Results Summary
 
-On the final 50/50 split, the supervised and selective semi-supervised models perform similarly.
+Three methods are compared:
 
-The more reliable comparison is cross-validation because the labeled dataset is very small. In cross-validation, the selective semi-supervised model gives a small but methodologically cleaner improvement:
+1. Supervised baseline using only the 100 strongly labeled images.
+2. Selective semi-supervised learning with KMeans pseudo-labels.
+3. Selective semi-supervised learning with DBSCAN pseudo-labels.
 
-- supervised baseline accuracy: about `0.94`
-- selective semi-supervised accuracy: about `0.95`
-- supervised macro F1: about `0.9397`
-- selective semi-supervised macro F1: about `0.9499`
+On the final 50/50 split, all three methods obtain the same score:
 
-The main conclusion is not that pseudo-labeling always helps. The important result is that semi-supervised learning helps only when pseudo-label noise is controlled. A selective cluster-purity rule gives a defensible gain, while naive pseudo-labeling can degrade performance.
+| Method | Accuracy | Macro F1 | Cancer recall | Cancer precision |
+|---|---:|---:|---:|---:|
+| Supervised only | 0.90 | 0.8996 | 0.96 | 0.8571 |
+| KMeans selective | 0.90 | 0.8996 | 0.96 | 0.8571 |
+| DBSCAN selective | 0.90 | 0.8996 | 0.96 | 0.8571 |
+
+This single split is therefore not enough to claim a meaningful difference. With only 100 labeled images, one or two examples can move the score noticeably.
+
+The more reliable comparison is 5-fold cross-validation:
+
+| Method | Mean accuracy | Mean macro F1 | Mean cancer recall | Mean cancer precision | Mean pseudo-labels per fold |
+|---|---:|---:|---:|---:|---:|
+| Supervised only | 0.94 | 0.9397 | 0.96 | 0.9303 | 0 |
+| KMeans selective | 0.95 | 0.9499 | 0.96 | 0.9455 | 602 |
+| DBSCAN selective | 0.91 | 0.9094 | 0.92 | 0.9133 | 264 |
+
+The main conclusions are:
+
+- KMeans selective pseudo-labeling gives the best cross-validated result, but the gain is modest: about +0.01 accuracy and +0.010 macro F1 versus the supervised baseline.
+- The improvement from KMeans mainly appears in cancer precision, while cancer recall stays unchanged at 0.96. In other words, KMeans helps reduce false positives without missing more cancer cases.
+- DBSCAN selective pseudo-labeling performs worse than the supervised baseline, despite being conservative. It adds fewer pseudo-labels on average and even selects none on one fold, which suggests that its density-based clusters are less stable or less aligned with the classification boundary in these ResNet18 embeddings.
+- The supervised baseline is already strong. This is important: adding unlabeled data does not automatically improve performance when the labeled set is small but the embedding space is informative.
+- The best interpretation is not "semi-supervised learning wins"; it is "semi-supervised learning can help slightly when pseudo-labels are both selective and structurally aligned with the labels." In this experiment, KMeans satisfies that condition better than DBSCAN.
+
+The practical recommendation is to keep the supervised baseline as the reference model, prefer KMeans selective pseudo-labeling if a semi-supervised variant is required, and avoid DBSCAN pseudo-labeling unless its parameters are retuned and validated more extensively.
 
 ## Reproducibility
 
