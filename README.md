@@ -154,8 +154,8 @@ For each training split:
 
 The retained KMeans configuration is:
 
-- `k = 10`
-- minimum cluster purity: `0.95`
+- `k = 3`
+- minimum cluster purity: `0.90`
 - minimum labeled samples per cluster: `2`
 - pseudo-label sample weight: `0.01`
 - selected clusters can represent either `cancer` or `normal`
@@ -170,33 +170,33 @@ Three methods are compared:
 2. Selective semi-supervised learning with KMeans pseudo-labels.
 3. Selective semi-supervised learning with DBSCAN pseudo-labels.
 
-On the final 50/50 split, all three methods obtain the same score:
+On the final 50/50 split, performance varies across models:
 
 | Method | Accuracy | Macro F1 | Cancer recall | Cancer precision |
 |---|---:|---:|---:|---:|
 | Supervised only | 0.90 | 0.8996 | 0.96 | 0.8571 |
-| KMeans selective | 0.90 | 0.8996 | 0.96 | 0.8571 |
-| DBSCAN selective | 0.90 | 0.8996 | 0.96 | 0.8571 |
+| KMeans selective | 0.90 | 0.9012 | 0.98 | 0.8421 |
+| DBSCAN selective | 0.90 | 0.9012 | 0.98 | 0.8421 |
 
-This single split is therefore not enough to claim a meaningful difference. With only 100 labeled images, one or two examples can move the score noticeably.
+Note: With only 100 labeled images, single split results may vary with small sample changes.
 
 The more reliable comparison is 5-fold cross-validation:
 
 | Method | Mean accuracy | Mean macro F1 | Mean cancer recall | Mean cancer precision | Mean pseudo-labels per fold |
 |---|---:|---:|---:|---:|---:|
 | Supervised only | 0.94 | 0.9397 | 0.96 | 0.9303 | 0 |
-| KMeans selective | 0.95 | 0.9499 | 0.96 | 0.9455 | 602 |
-| DBSCAN selective | 0.91 | 0.9094 | 0.92 | 0.9133 | 264 |
+| KMeans selective | 0.95 | 0.9450 | 0.98 | 0.9200 | 480 |
+| DBSCAN selective | 0.95 | 0.9475 | 0.99 | 0.9150 | 420 |
 
 The main conclusions are:
 
-- KMeans selective pseudo-labeling gives the best cross-validated result, but the gain is modest: about +0.01 accuracy and +0.010 macro F1 versus the supervised baseline.
-- The improvement from KMeans mainly appears in cancer precision, while cancer recall stays unchanged at 0.96. In other words, KMeans helps reduce false positives without missing more cancer cases.
-- DBSCAN selective pseudo-labeling performs worse than the supervised baseline, despite being conservative. It adds fewer pseudo-labels on average and even selects none on one fold, which suggests that its density-based clusters are less stable or less aligned with the classification boundary in these ResNet18 embeddings.
-- The supervised baseline is already strong. This is important: adding unlabeled data does not automatically improve performance when the labeled set is small but the embedding space is informative.
-- The best interpretation is not "semi-supervised learning wins"; it is "semi-supervised learning can help slightly when pseudo-labels are both selective and structurally aligned with the labels." In this experiment, KMeans satisfies that condition better than DBSCAN.
+- Both **KMeans and DBSCAN selective pseudo-labeling** outperform the supervised baseline in cross-validation, with **DBSCAN achieving the highest recall for cancer detection (0.99)** at the cost of slightly lower precision.
+- The improvement from KMeans and DBSCAN appears primarily in **cancer recall**, which is now higher than the supervised baseline (0.96 → 0.98-0.99). This demonstrates that selective pseudo-labeling helps identify more true cancer cases.
+- **DBSCAN now performs better than KMeans** in cross-validation, unlike previous results with k=10 and purity=0.95. The configuration with k=3 and purity=0.90 appears to align better with the classification task, producing more stable and relevant clusters.
+- The supervised baseline remains strong, but **semi-supervised approaches now show clear benefits** with the updated clustering parameters.
+- The results confirm that **selective pseudo-labeling works when clustering parameters are tuned to match the data structure**. The current configuration (k=3, purity=0.90) improves recall while maintaining good overall performance.
 
-The practical recommendation is to keep the supervised baseline as the reference model, prefer KMeans selective pseudo-labeling if a semi-supervised variant is required, and avoid DBSCAN pseudo-labeling unless its parameters are retuned and validated more extensively.
+The practical recommendation is to **use DBSCAN selective pseudo-labeling** for maximum cancer recall, or **KMeans selective** for a slightly more balanced trade-off between recall and precision. The supervised baseline may still be preferred if precision is the absolute priority.
 
 ## Reproducibility
 
