@@ -1,4 +1,0 @@
-model,accuracy,precision_macro,recall_macro,f1_macro,f1_cancer,recall_cancer,precision_cancer
-supervised_strong_only_cnn,0.56,0.7659574468085106,0.56,0.45436507936507936,0.6944444444444444,1.0,0.5319148936170213
-semi_supervised_kmeans_selective_cnn,0.94,0.9407051282051282,0.94,0.9399759903961584,0.9387755102040817,0.92,0.9583333333333334
-semi_supervised_dbscan_selective_cnn,0.84,0.84,0.84,0.84,0.84,0.84,0.84
