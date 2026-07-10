@@ -1,10 +1,4 @@
 cluster_modeling,cancer,normal,n_labeled,majority_label,purity
-0,3,0,3,cancer,1.0
-1,2,0,2,cancer,1.0
+0,7,24,31,normal,0.7741935483870968
+1,15,1,16,cancer,0.9375
 2,3,0,3,cancer,1.0
-3,7,0,7,cancer,1.0
-5,3,1,4,cancer,0.75
-6,3,0,3,cancer,1.0
-7,0,13,13,normal,1.0
-8,0,8,8,normal,1.0
-9,4,3,7,cancer,0.5714285714285714
